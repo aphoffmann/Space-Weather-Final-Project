@@ -95,19 +95,19 @@ class Thermosphere():
         
         "System matrix and RHS term"
         "Diffusion term"
-        Diff =(1/Dx**2)*(2*np.diag(np.ones(self.nAlts+1)) \
-                         - np.diag(np.ones(self.nAlts),-1) - np.diag(np.ones(self.nAlts),1))
+        Diff =(1/Dx**2)*(2*np.diag(np.ones(self.nAlts+2)) \
+                         - np.diag(np.ones(self.nAlts+1),-1) - np.diag(np.ones(self.nAlts+1),1))
 
         "Source term"
         A = (-1/4e-4)*Diff
-        F = np.ones(self.nAlts+1)*Qeuv
+        F = np.ones(self.nAlts+2)*Qeuv
         
         "Boundary condition at x=0"
-        A[0,:] = np.concatenate(([1],np.zeros(self.nAlts)))
+        A[0,:] = np.concatenate(([1],np.zeros(self.nAlts+1)))
         F[0] = self.t_boundary
 
-        A[self.nAlts+1,:] = np.concatenate((np.zeros(self.nAlts-1),[-1, 1]))
-        F[self.nAlts+1]=0
+        A[-1,:] = np.concatenate((np.zeros(self.nAlts),[-1, 1]))
+        F[-1]=0
   
         "Solution of the linear system AU=F"
         u = np.linalg.solve(A,F)
