@@ -101,8 +101,9 @@ class Thermosphere():
     
     def solve(self, Qeuv, T, dt = 1):
         "Source term"
-        F = Qeuv*(8e-8)*np.ones(self.nAlts+2) + T/dt # temp
-        
+        #print(Qeuv*(4e-4))
+        F = Qeuv/(9e-8)*np.ones(self.nAlts+2) + T/dt # temp
+        #print(F)
         "Boundary condition at x=0"
         F[-1]=0; F[0] = 200
       
@@ -148,15 +149,12 @@ class Thermosphere():
             Q_euv_O2 = self.calculateQeuv(T[n],mass_o2,n_o2_bc, SZA, euv_info['o2cross'], False, "O2")
             Q_euv_N2 = self.calculateQeuv(T[n], mass_n2,n_n2_bc, SZA, euv_info['n2cross'], False, "N2")
             Q_euv = Q_euv_O + Q_euv_O2 + Q_euv_N2
-            plt.plot(Q_euv,self.alts)
-            plt.plot(Q_euv_O,self.alts)
-            plt.plot(Q_euv_O2,self.alts)
-            plt.plot(Q_euv_N2,self.alts)
-            plt.show()
-            input()
+
+            
+ 
             "Solve for Ion Temperatures"
             T[n+1] = self.solve(Q_euv, T[n], dt)
-            
+      
             #plt.clf()
         plt.plot(T[0], self.alts)
         plt.plot(T[len(T)//2], self.alts)
