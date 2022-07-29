@@ -41,7 +41,6 @@ class Thermosphere():
         self.t_prime_boundary = 0
         self.t_boundary = 200
         self.alts = np.linspace(100, 500, num = self.nAlts+2)
-        self.temp = self.init_temp(self.alts)
         self.mass = 0
         self.n = 0
         self.SZA = 0
@@ -54,7 +53,7 @@ class Thermosphere():
         temp_in_k = 200 + 600 * np.tanh( (alt_in_km - 100) / 100.0)
         return temp_in_k
     
-    def calculateQeuv(self, mass, n_density, SZA, cross_section, plot = False, atom = "O2"):
+    def calculateQeuv(self,T, mass, n_density, SZA, cross_section, plot = False, atom = "O2"):
         """
         Calculate neutral heating in the thermospheere.
 
@@ -77,10 +76,10 @@ class Thermosphere():
 
         
         "Calculate Scale Height"
-        h = calc_scale_height(mass, self.alts, self.temp)
+        h = calc_scale_height(mass, self.alts, T)
         
         "Calculate Mass Density"
-        density = calc_hydrostatic(n_density, h, self.temp, self.alts)
+        density = calc_hydrostatic(n_density, h, T, self.alts)
         
         "Calculate Optical Depth"
         tau = calc_tau(SZA, density, h, cross_section)
@@ -94,41 +93,37 @@ class Thermosphere():
                         efficiency)
         
         "Plot Results"
-        if(plot):
-            plot_value_vs_alt(self.alts, Qeuv, atom + '_qeuv.png', 'Qeuv - ' + atom + ' (W/m3)')
+        #if(plot):
+        #    plot_value_vs_alt(self.alts, Qeuv, atom + '_qeuv.png', 'Qeuv - ' + atom + ' (W/m3)')
         
         return(Qeuv)
     
-    def solve(self, Qeuv):
-        "System matrix and RHS term"
+    def solve(self, Qeuv, T, dt = 1):
         "Diffusion term"
         Dx = (500-100)/self.nAlts
         Diff = (2*np.diag(np.ones(self.nAlts+2)) \
                          - np.diag(np.ones(self.nAlts+1),-1) - np.diag(np.ones(self.nAlts+1),1))
-        Diff[0,:] = np.concatenate(([1],np.zeros(self.nAlts+1)))
-        Diff[-1,:] = np.concatenate((np.zeros(self.nAlts),[-1, 1]))
-
-            
-        print("Diff: \n", Diff)
-        "Source term"
         A = (1/Dx**2)*Diff
-        F = Qeuv*(-4e-8)*np.ones(self.nAlts+2) # temp
-        print("F: \n", F)
-    
         
+        "Temporal Term for A"
+        A = A + np.identity(A.shape[-1])/dt
+        
+        "Boundary Conditions"
+        T[0] = 200 
+        A[0,:] = np.concatenate(([1],np.zeros(self.nAlts+1)))
+        A[-1,:] = np.concatenate((np.zeros(self.nAlts),[-1, 1]))/Dx
+            
+        "Source term"
+        F = Qeuv*(8e-8)*np.ones(self.nAlts+2) + T/dt # temp
+        
+    
         "Boundary condition at x=0"
-        #F[0] = self.t_boundary
         F[-1]=0
       
-        'calulate inverse term'
-        dt = 1
-        T = np.linalg.inv(np.identity(A.shape[-1])-dt*A)@(dt*Qeuv + self.temp)
-        
         "Solution of the linear system AU=F"
         u = np.linalg.solve(A,F)
-        # print("U: \n", u)
         
-        return(T)
+        return(u)
     
     def run(self):
         "Set Solar Zenith Angle"
@@ -138,16 +133,26 @@ class Thermosphere():
         euv_file = 'euv_37.csv'
         euv_info = read_euv_csv_file(euv_file)
 
-        "Compute Q_euv for O, O2, and N2"
-        Q_euv_O = self.calculateQeuv(mass_o,n_o_bc, SZA, euv_info['ocross'], False, "O")
-        Q_euv_O2 = self.calculateQeuv(mass_o2,n_o2_bc, SZA, euv_info['o2cross'], False, "O2")
-        Q_euv_N2 = self.calculateQeuv(mass_n2,n_n2_bc, SZA, euv_info['n2cross'], False, "N2")
-        Q_euv = Q_euv_O + Q_euv_O2 + Q_euv_N2
+        T0 = self.init_temp(self.alts)
+        times = np.arange(0, 12*60*60, 5*60); dt = 300
+        T = np.zeros((times.shape[0], T0.shape[0]))
+        T[0] = T0
         
-        "Solve for Ion Temperatures"
-        T = self.solve(Q_euv)
+        for n in range(times.shape[0]-1):
+            "Compute Q_euv for O, O2, and N2"
+            Q_euv_O = self.calculateQeuv(T[n],mass_o,n_o_bc, SZA, euv_info['ocross'], False, "O")
+            Q_euv_O2 = self.calculateQeuv(T[n],mass_o2,n_o2_bc, SZA, euv_info['o2cross'], False, "O2")
+            Q_euv_N2 = self.calculateQeuv(T[n], mass_n2,n_n2_bc, SZA, euv_info['n2cross'], False, "N2")
+            Q_euv = Q_euv_O + Q_euv_O2 + Q_euv_N2
+            
+            "Solve for Ion Temperatures"
+            T[n+1] = self.solve(Q_euv, T[n], dt)
+            
+            #plt.clf()
+        plt.plot(T[n+1], self.alts)
+        
 
         
         return(T)
     
-    
+
