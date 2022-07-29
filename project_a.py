@@ -32,7 +32,7 @@ class Thermosphere():
         self.nAlts = N
         self.t_prime_boundary = 0
         self.t_boundary = 200
-        self.alts = np.linspace(100, 500, num = self.nAlts)
+        self.alts = np.linspace(100, 500, num = self.nAlts +2)
         self.temp = self.init_temp(self.alts)
         
         return
