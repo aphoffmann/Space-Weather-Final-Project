@@ -122,7 +122,7 @@ class Thermosphere():
 
         "Time Array and Temperature"
         T0 = self.init_temp(self.alts)
-        times = np.arange(0, 12*60*60, 5*60); dt = 300
+        times = np.arange(0, 24*60*60, 5*60); dt = 300
         T = np.zeros((times.shape[0], T0.shape[0]))
         T[0] = T0
 
@@ -164,4 +164,21 @@ class Thermosphere():
         
         return(T)
     
+if(__name__ == '__main__'):
+    th = Thermosphere()
+    T = th.run()
+    
+    fig = plt.figure()
+    ax = plt.axes() 
+    myAnimation, = ax.plot([], [],':ob',linewidth=2)
+    plt.grid()
+    plt.xlabel("x",fontsize=16)
+    plt.ylabel("u",fontsize=16)
+    
+    def animate(i):
+        plt.plot(T[i],th.alts)
+        myAnimation.set_data(T[i],th.alts)
+        return myAnimation,
 
+    anim = animation.FuncAnimation(fig,animate,frames=range(1,T.shape[0]),blit=True,repeat=True, interval = 10)
+    
