@@ -46,6 +46,7 @@ class Thermosphere():
         self.SZA = 0
         self.cross_section = 0
         self.species = ""
+        self.A = 0
         
         return
     
@@ -99,29 +100,14 @@ class Thermosphere():
         return(Qeuv)
     
     def solve(self, Qeuv, T, dt = 1):
-        "Diffusion term"
-        Dx = (500-100)/self.nAlts
-        Diff = (2*np.diag(np.ones(self.nAlts+2)) \
-                         - np.diag(np.ones(self.nAlts+1),-1) - np.diag(np.ones(self.nAlts+1),1))
-        A = (1/Dx**2)*Diff
-        
-        "Temporal Term for A"
-        A = A + np.identity(A.shape[-1])/dt
-        
-        "Boundary Conditions"
-        T[0] = 200 
-        A[0,:] = np.concatenate(([1],np.zeros(self.nAlts+1)))
-        A[-1,:] = np.concatenate((np.zeros(self.nAlts),[-1, 1]))/Dx
-            
         "Source term"
         F = Qeuv*(8e-8)*np.ones(self.nAlts+2) + T/dt # temp
         
-    
         "Boundary condition at x=0"
-        F[-1]=0
+        F[-1]=0; F[0] = 200
       
         "Solution of the linear system AU=F"
-        u = np.linalg.solve(A,F)
+        u = np.linalg.solve(self.A,F)
         
         return(u)
     
@@ -133,23 +119,48 @@ class Thermosphere():
         euv_file = 'euv_37.csv'
         euv_info = read_euv_csv_file(euv_file)
 
+        "Time Array and Temperature"
         T0 = self.init_temp(self.alts)
         times = np.arange(0, 12*60*60, 5*60); dt = 300
         T = np.zeros((times.shape[0], T0.shape[0]))
         T[0] = T0
+
+        "Diffusion term"
+        Dx = (500-100)/self.nAlts
+        Diff = (2*np.diag(np.ones(self.nAlts+2)) \
+                         - np.diag(np.ones(self.nAlts+1),-1) - np.diag(np.ones(self.nAlts+1),1))
+        A = (1/Dx**2)*Diff
         
+        "Temporal Term for A"
+        A = A + np.identity(A.shape[-1])/dt
+        
+        "Boundary Conditions"
+        A[0,:] = np.concatenate(([1],np.zeros(self.nAlts+1)))
+        A[-1,:] = np.concatenate((np.zeros(self.nAlts-1),[1/2, -2, 3/2]))/Dx
+        self.A = A
+        
+ 
+        
+        "Update Temperature Profile"
         for n in range(times.shape[0]-1):
             "Compute Q_euv for O, O2, and N2"
             Q_euv_O = self.calculateQeuv(T[n],mass_o,n_o_bc, SZA, euv_info['ocross'], False, "O")
             Q_euv_O2 = self.calculateQeuv(T[n],mass_o2,n_o2_bc, SZA, euv_info['o2cross'], False, "O2")
             Q_euv_N2 = self.calculateQeuv(T[n], mass_n2,n_n2_bc, SZA, euv_info['n2cross'], False, "N2")
             Q_euv = Q_euv_O + Q_euv_O2 + Q_euv_N2
-            
+            plt.plot(Q_euv,self.alts)
+            plt.plot(Q_euv_O,self.alts)
+            plt.plot(Q_euv_O2,self.alts)
+            plt.plot(Q_euv_N2,self.alts)
+            plt.show()
+            input()
             "Solve for Ion Temperatures"
             T[n+1] = self.solve(Q_euv, T[n], dt)
             
             #plt.clf()
-        plt.plot(T[n+1], self.alts)
+        plt.plot(T[0], self.alts)
+        plt.plot(T[len(T)//2], self.alts)
+        plt.plot(T[-1], self.alts)
         
 
         
