@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from helper_functions import *
 from physics_functions import *
 import matplotlib.animation as animation
+from scipy.optimize import fsolve
 
 # set f107:
 f107 = 100.0
@@ -27,13 +28,25 @@ mass_o = 16.0 # in AMU
 mass_o2 = 32.0 # in AMU
 mass_n2 = 28.0 # in AMU
 
+"Calculate Energies"
+euv_file = 'euv_37.csv'
+euv_info = read_euv_csv_file(euv_file)
+intensity_at_inf = EUVAC(euv_info['f74113'], euv_info['afac'], f107, f107a)
+wavelength = (euv_info['short'] + euv_info['long'])/2
+energies = convert_wavelength_to_joules(wavelength)
+
 class Thermosphere():
-    def __init__(self, N = 512, t_d = 0, t_0 = 200): 
+    def __init__(self, N = 1024, t_d = 0, t_0 = 200): 
         self.nAlts = N
         self.t_prime_boundary = 0
         self.t_boundary = 200
-        self.alts = np.linspace(100, 500, num = self.nAlts +2)
+        self.alts = np.linspace(100, 500, num = self.nAlts+2)
         self.temp = self.init_temp(self.alts)
+        self.mass = 0
+        self.n = 0
+        self.SZA = 0
+        self.cross_section = 0
+        self.species = ""
         
         return
     
@@ -61,12 +74,7 @@ class Thermosphere():
         Qeuv
 
         """
-        "Calculate Energies"
-        euv_file = 'euv_37.csv'
-        euv_info = read_euv_csv_file(euv_file)
-        intensity_at_inf = EUVAC(euv_info['f74113'], euv_info['afac'], f107, f107a)
-        wavelength = (euv_info['short'] + euv_info['long'])/2
-        energies = convert_wavelength_to_joules(wavelength)
+
         
         "Calculate Scale Height"
         h = calc_scale_height(mass, self.alts, self.temp)
@@ -92,27 +100,35 @@ class Thermosphere():
         return(Qeuv)
     
     def solve(self, Qeuv):
-        
         "System matrix and RHS term"
         "Diffusion term"
-        Diff =(1/Dx**2)*(2*np.diag(np.ones(self.nAlts+2)) \
+        Dx = (500-100)/self.nAlts
+        Diff = (2*np.diag(np.ones(self.nAlts+2)) \
                          - np.diag(np.ones(self.nAlts+1),-1) - np.diag(np.ones(self.nAlts+1),1))
+        Diff[0,:] = np.concatenate(([1],np.zeros(self.nAlts+1)))
+        Diff[-1,:] = np.concatenate((np.zeros(self.nAlts),[-1, 1]))
 
+            
+        print("Diff: \n", Diff)
         "Source term"
-        A = (-1/4e-4)*Diff
-        F = np.ones(self.nAlts+2)*Qeuv
+        A = (1/Dx**2)*Diff
+        F = Qeuv*(-4e-8)*np.ones(self.nAlts+2) # temp
+        print("F: \n", F)
+    
         
         "Boundary condition at x=0"
-        A[0,:] = np.concatenate(([1],np.zeros(self.nAlts+1)))
-        F[0] = self.t_boundary
-
-        A[-1,:] = np.concatenate((np.zeros(self.nAlts),[-1, 1]))
+        #F[0] = self.t_boundary
         F[-1]=0
-  
+      
+        'calulate inverse term'
+        dt = 1
+        T = np.linalg.inv(np.identity(A.shape[-1])-dt*A)@(dt*Qeuv + self.temp)
+        
         "Solution of the linear system AU=F"
         u = np.linalg.solve(A,F)
+        # print("U: \n", u)
         
-        return u
+        return(T)
     
     def run(self):
         "Set Solar Zenith Angle"
@@ -123,14 +139,15 @@ class Thermosphere():
         euv_info = read_euv_csv_file(euv_file)
 
         "Compute Q_euv for O, O2, and N2"
-        Q_euv_O = self.calculateQeuv(mass_o,n_o_bc, SZA, euv_info['ocross'], True, "O")
-        Q_euv_O2 = self.calculateQeuv(mass_o2,n_o2_bc, SZA, euv_info['o2cross'], True, "O2")
-        Q_euv_N2 = self.calculateQeuv(mass_n2,n_n2_bc, SZA, euv_info['n2cross'], True, "N2")
+        Q_euv_O = self.calculateQeuv(mass_o,n_o_bc, SZA, euv_info['ocross'], False, "O")
+        Q_euv_O2 = self.calculateQeuv(mass_o2,n_o2_bc, SZA, euv_info['o2cross'], False, "O2")
+        Q_euv_N2 = self.calculateQeuv(mass_n2,n_n2_bc, SZA, euv_info['n2cross'], False, "N2")
+        Q_euv = Q_euv_O + Q_euv_O2 + Q_euv_N2
         
-        return
         "Solve for Ion Temperatures"
-        T_o = self.solve(Q_euv_O)
-        T_o2 = self.solve(Q_euv_O2)
-        T_n2 = self.solve(Q_euv_N2)
+        T = self.solve(Q_euv)
+
         
-        return(T_o,T_o2,T_n2)
+        return(T)
+    
+    
