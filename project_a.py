@@ -41,8 +41,27 @@ class Thermosphere():
         euv_info = read_euv_csv_file(euv_file)
         return
     
-    def solve(self):
-        return
+    def solve(self, Qeuv):
+        
+        "System matrix and RHS term"
+        "Diffusion term"
+        Diff =(1/Dx**2)*(2*np.diag(np.ones(N+1)) - np.diag(np.ones(N),-1) - np.diag(np.ones(N),1))
+
+        "Source term"
+        A = (-1/4e-4)*Diff
+        F = np.ones(N+1)*Qeuv
+        
+        "Boundary condition at x=0"
+        A[0,:] = np.concatenate(([1],np.zeros(N)))
+        F[0] = self.t_boundary
+
+        A[N+1,:] = np.concatenate((np.zeros(N-1),[-1, 1]))
+        F[N+1]=0
+  
+        "Solution of the linear system AU=F"
+        u = np.linalg.solve(A,F)
+        
+        return u
     
     def run(self):
         # set f107:
