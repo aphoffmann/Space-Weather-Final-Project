@@ -36,32 +36,63 @@ class Thermosphere():
         temp_in_k = 200 + 600 * np.tanh( (alt_in_km - 100) / 100.0)
         return temp_in_k
     
-    def calculateQeuv(self, mass, density, SZA, cross_section):
+    def calculateQeuv(self, mass, n_density, SZA, cross_section):
+        """
+        Calculate neutral heating in the thermospheere.
+
+        Parameters
+        ----------
+        mass : float
+            mass of neutral.
+        n_density : float
+            number density of the neutral.
+        SZA : degree
+            Solar zenith angle.
+        cross_section : float
+            cross section of neutral atom
+
+        Returns
+        -------
+        Qeuv
+
+        """
+        "Calculate Energies"
         euv_file = 'euv_37.csv'
         euv_info = read_euv_csv_file(euv_file)
-        return
+        intensity_at_inf = EUVAC(euv_info['f74113'], euv_info['afac'], f107, f107a)
+        wavelength = (euv_info['short'] + euv_info['long'])/2
+        energies = convert_wavelength_to_joules(wavelength)
+        
+        "Calculate Scale Height"
+        h = calc_scale_height(mass, self.alts, self.temp)
+        
+        "Calculate Mass Density"
+        density = calc_hydrostatic(n_density, h, self.temp, self.alts)
+        
+        "Calculate Optical Depth"
+        tau = calc_tau(SZA, density, h, cross_section)
+        
+        "Calculate Q_euv"
+        Qeuv_o = calculate_Qeuv(density,
+                        intensity_at_inf,
+                        tau,
+                        cross_section,
+                        energies,
+                        efficiency)
+        
+        return(Qeuv)
     
     def solve(self):
-        return
+        return 
     
     def run(self):
-        # set f107:
-        f107 = 100.0
-        f107a = 100.0
-    
+        "Set Solar Zenith Angle"
         SZA = 0.0
-        efficiency = 0.3
-        
-        # boundary conditions for densities:
-        n_o_bc = 5.0e17 # /m3
-        n_o2_bc = 4.0e18 # /m3
-        n_n2_bc = 1.7e19 # /m3
-    
-        # read in EUV file (step 1):
+       
+        'read in EUV file' 
         euv_file = 'euv_37.csv'
         euv_info = read_euv_csv_file(euv_file)
-        print('short : ', euv_info['short'])
-        print('ocross : ', euv_info['ocross'])
+
     
         # initialize altitudes (step 2):
         nAlts = 41
