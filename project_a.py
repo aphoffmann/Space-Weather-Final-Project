@@ -11,12 +11,36 @@ from helper_functions import *
 from physics_functions import *
 import matplotlib.animation as animation
 
+# set f107:
+f107 = 100.0
+f107a = 100.0
+efficiency = 0.3
+
+# boundary conditions for densities:
+n_o_bc = 5.0e17 # /m3
+n_o2_bc = 4.0e18 # /m3
+n_n2_bc = 1.7e19 # /m3
+
+
 class Thermosphere():
     def __init__(self, N = 512, t_d = 0, t_0 = 200): 
-        self.N = N
+        self.nAlts = N
         self.t_prime_boundary = 0
         self.t_boundary = 200
+        self.alts = np.linspace(100, 500, num = nAlts)
         
+        return
+    
+    def init_temp(self, alt_in_km):
+        temp_in_k = 200 + 600 * np.tanh( (alt_in_km - 100) / 100.0)
+        return temp_in_k
+    
+    def calculateQeuv(self):
+        euv_file = 'euv_37.csv'
+        euv_info = read_euv_csv_file(euv_file)
+        return
+    
+    def solve(self):
         return
     
     def run(self):
