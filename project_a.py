@@ -27,7 +27,8 @@ class Thermosphere():
         self.nAlts = N
         self.t_prime_boundary = 0
         self.t_boundary = 200
-        self.alts = np.linspace(100, 500, num = nAlts)
+        self.alts = np.linspace(100, 500, num = self.nAlts)
+        self.temp = self.init_temp(self.alts)
         
         return
     
@@ -35,7 +36,7 @@ class Thermosphere():
         temp_in_k = 200 + 600 * np.tanh( (alt_in_km - 100) / 100.0)
         return temp_in_k
     
-    def calculateQeuv(self):
+    def calculateQeuv(self, mass, density, SZA, cross_section):
         euv_file = 'euv_37.csv'
         euv_info = read_euv_csv_file(euv_file)
         return
@@ -143,5 +144,3 @@ class Thermosphere():
     
         # this provides cp, which could be made to be a function of density ratios:
         cp = calculate_cp()
-        
-        dTdt = convert_Q_to_dTdt(Qeuv, rho, cp)
