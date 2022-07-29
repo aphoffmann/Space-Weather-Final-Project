@@ -100,14 +100,14 @@ class Thermosphere():
 
         "Source term"
         A = (-1/4e-4)*Diff
-        F = np.ones(N+1)*Qeuv
+        F = np.ones(self.nAlts+1)*Qeuv
         
         "Boundary condition at x=0"
         A[0,:] = np.concatenate(([1],np.zeros(self.nAlts)))
         F[0] = self.t_boundary
 
-        A[N+1,:] = np.concatenate((np.zeros(self.nAlts-1),[-1, 1]))
-        F[N+1]=0
+        A[self.nAlts+1,:] = np.concatenate((np.zeros(self.nAlts-1),[-1, 1]))
+        F[self.nAlts+1]=0
   
         "Solution of the linear system AU=F"
         u = np.linalg.solve(A,F)
